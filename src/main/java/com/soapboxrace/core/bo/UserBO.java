@@ -1,6 +1,11 @@
 package com.soapboxrace.core.bo;
 
-import com.soapboxrace.core.api.util.Config;
+import java.time.LocalDateTime;
+import java.util.List;
+
+import javax.ejb.EJB;
+import javax.ejb.Stateless;
+
 import com.soapboxrace.core.dao.InviteTicketDAO;
 import com.soapboxrace.core.dao.ServerInfoDAO;
 import com.soapboxrace.core.dao.UserDAO;
@@ -14,10 +19,6 @@ import com.soapboxrace.jaxb.http.User;
 import com.soapboxrace.jaxb.http.UserInfo;
 import com.soapboxrace.jaxb.login.LoginStatusVO;
 
-import javax.ejb.EJB;
-import javax.ejb.Stateless;
-import java.util.List;
-
 @Stateless
 public class UserBO {
 
@@ -29,9 +30,12 @@ public class UserBO {
 
 	@EJB
 	private ServerInfoDAO serverInfoDAO;
-	
+
 	@EJB
 	private OpenFireRestApiCli xmppRestApiCli;
+
+	@EJB
+	private ParameterBO parameterBO;
 
 	public void createXmppUser(UserInfo userInfo) {
 		String securityToken = userInfo.getUser().getSecurityToken();
@@ -50,6 +54,8 @@ public class UserBO {
 		UserEntity userEntity = new UserEntity();
 		userEntity.setEmail(email);
 		userEntity.setPassword(passwd);
+		userEntity.setCreated(LocalDateTime.now());
+		userEntity.setLastLogin(LocalDateTime.now());
 		userDao.insert(userEntity);
 		return userEntity;
 	}
@@ -58,7 +64,7 @@ public class UserBO {
 		LoginStatusVO loginStatusVO = new LoginStatusVO(0L, "", false);
 		InviteTicketEntity inviteTicketEntity = new InviteTicketEntity();
 		inviteTicketEntity.setTicket("empty-ticket");
-		String ticketToken = Config.getTicketToken();
+		String ticketToken = parameterBO.getStrParam("TICKET_TOKEN");
 		if (ticketToken != null && !ticketToken.equals("null")) {
 			inviteTicketEntity = inviteTicketDAO.findByTicket(ticket);
 			if (inviteTicketEntity == null || inviteTicketEntity.getTicket() == null || inviteTicketEntity.getTicket().isEmpty()) {

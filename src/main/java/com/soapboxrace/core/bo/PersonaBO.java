@@ -5,14 +5,17 @@ import java.util.List;
 import javax.ejb.EJB;
 import javax.ejb.Stateless;
 
+import com.soapboxrace.core.bo.util.OwnedCarConverter;
 import com.soapboxrace.core.dao.CarSlotDAO;
 import com.soapboxrace.core.dao.LevelRepDAO;
+import com.soapboxrace.core.dao.OwnedCarDAO;
 import com.soapboxrace.core.dao.PersonaDAO;
 import com.soapboxrace.core.jpa.CarSlotEntity;
+import com.soapboxrace.core.jpa.CustomCarEntity;
 import com.soapboxrace.core.jpa.LevelRepEntity;
+import com.soapboxrace.core.jpa.OwnedCarEntity;
 import com.soapboxrace.core.jpa.PersonaEntity;
 import com.soapboxrace.jaxb.http.OwnedCarTrans;
-import com.soapboxrace.jaxb.util.UnmarshalXML;
 
 @Stateless
 public class PersonaBO {
@@ -26,12 +29,15 @@ public class PersonaBO {
 	@EJB
 	private LevelRepDAO levelRepDAO;
 
+	@EJB
+	private OwnedCarDAO ownedCarDAO;
+
 	public void changeDefaultCar(Long personaId, Long defaultCarId) {
 		PersonaEntity personaEntity = personaDAO.findById(personaId);
 		List<CarSlotEntity> carSlotList = carSlotDAO.findByPersonaId(personaId);
 		int i = 0;
 		for (CarSlotEntity carSlotEntity : carSlotList) {
-			if (carSlotEntity.getId().equals(defaultCarId)) {
+			if (carSlotEntity.getOwnedCar().getId().equals(defaultCarId)) {
 				break;
 			}
 			i++;
@@ -48,15 +54,22 @@ public class PersonaBO {
 		PersonaEntity personaEntity = personaDAO.findById(personaId);
 		List<CarSlotEntity> carSlotList = getPersonasCar(personaId);
 		Integer curCarIndex = personaEntity.getCurCarIndex();
-		if (carSlotList.size() > 0) {
+		if (!carSlotList.isEmpty()) {
 			if (curCarIndex >= carSlotList.size()) {
 				curCarIndex = carSlotList.size() - 1;
 				CarSlotEntity ownedCarEntity = carSlotList.get(curCarIndex);
 				changeDefaultCar(personaId, ownedCarEntity.getId());
 			}
-			return carSlotList.get(curCarIndex);
+			CarSlotEntity carSlotEntity = carSlotList.get(curCarIndex);
+			CustomCarEntity customCar = carSlotEntity.getOwnedCar().getCustomCar();
+			customCar.getPaints().size();
+			customCar.getPerformanceParts().size();
+			customCar.getSkillModParts().size();
+			customCar.getVisualParts().size();
+			customCar.getVinyls().size();
+			return carSlotEntity;
 		}
-		throw new IllegalStateException(String.format("Persona %d has no default car", personaId));
+		return null;
 	}
 
 	public OwnedCarTrans getDefaultCar(Long personaId) {
@@ -64,9 +77,7 @@ public class PersonaBO {
 		if (carSlotEntity == null) {
 			throw new IllegalStateException(String.format("Persona %d has no default car", personaId));
 		}
-		OwnedCarTrans ownedCarTrans = UnmarshalXML.unMarshal(carSlotEntity.getOwnedCarTrans(), OwnedCarTrans.class);
-		ownedCarTrans.setId(carSlotEntity.getId());
-		return ownedCarTrans;
+		return OwnedCarConverter.entity2Trans(carSlotEntity.getOwnedCar());
 	}
 
 	public List<CarSlotEntity> getPersonasCar(Long personaId) {
@@ -75,6 +86,17 @@ public class PersonaBO {
 
 	public LevelRepEntity getLevelInfoByLevel(Long level) {
 		return levelRepDAO.findByLevel(level);
+	}
+
+	public OwnedCarEntity getCarByOwnedCarId(Long ownedCarId) {
+		OwnedCarEntity ownedCarEntity = ownedCarDAO.findById(ownedCarId);
+		CustomCarEntity customCar = ownedCarEntity.getCustomCar();
+		customCar.getPaints().size();
+		customCar.getPerformanceParts().size();
+		customCar.getSkillModParts().size();
+		customCar.getVisualParts().size();
+		customCar.getVinyls().size();
+		return ownedCarEntity;
 	}
 
 }

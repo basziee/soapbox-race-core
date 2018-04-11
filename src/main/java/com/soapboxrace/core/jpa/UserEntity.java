@@ -1,5 +1,6 @@
 package com.soapboxrace.core.jpa;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 import javax.persistence.Column;
@@ -42,6 +43,15 @@ public class UserEntity {
 
 	@Column(name = "isAdmin")
 	private boolean isAdmin;
+	
+	@Column(name = "created")
+	private LocalDateTime created;
+	
+	@Column(name = "lastLogin")
+	private LocalDateTime lastLogin;
+	
+	@Column(name = "Hwid")
+	private String hwid;
 
 	public void setId(Long id) {
 		this.id = id;
@@ -101,5 +111,35 @@ public class UserEntity {
 	public void setAdmin(boolean admin)
 	{
 		isAdmin = admin;
+	}
+
+	public LocalDateTime getLastLogin()
+	{
+		return lastLogin;
+	}
+
+	public void setLastLogin(LocalDateTime lastLogin)
+	{
+		this.lastLogin = lastLogin;
+	}
+
+	public LocalDateTime getCreated()
+	{
+		return created;
+	}
+
+	public void setCreated(LocalDateTime created)
+	{
+		this.created = created;
+	}
+
+	public String getHwid()
+	{
+		return hwid;
+	}
+
+	public void setHwid(String hwid)
+	{
+		this.hwid = hwid;
 	}
 }

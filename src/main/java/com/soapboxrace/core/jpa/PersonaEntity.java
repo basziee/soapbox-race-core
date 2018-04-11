@@ -1,6 +1,8 @@
 
 package com.soapboxrace.core.jpa;
 
+import java.time.LocalDateTime;
+
 import javax.persistence.Column;
 import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
@@ -38,6 +40,9 @@ public class PersonaEntity {
 	@ManyToOne
 	@JoinColumn(name = "USERID", referencedColumnName = "ID")
 	private UserEntity user;
+	
+	@Column(name = "created")
+	private LocalDateTime created;
 
 	public double getBoost() {
 		return boost;
@@ -151,4 +156,13 @@ public class PersonaEntity {
 		this.curCarIndex = curCarIndex;
 	}
 
+	public LocalDateTime getCreated()
+	{
+		return created;
+	}
+
+	public void setCreated(LocalDateTime created)
+	{
+		this.created = created;
+	}
 }

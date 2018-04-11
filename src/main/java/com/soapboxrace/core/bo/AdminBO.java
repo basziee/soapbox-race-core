@@ -1,5 +1,12 @@
 package com.soapboxrace.core.bo;
 
+import java.time.LocalDateTime;
+import java.util.Arrays;
+
+import javax.ejb.EJB;
+import javax.ejb.Stateless;
+
+import com.soapboxrace.core.api.util.LaunchFilter;
 import com.soapboxrace.core.api.util.MiscUtils;
 import com.soapboxrace.core.dao.BanDAO;
 import com.soapboxrace.core.dao.PersonaDAO;
@@ -9,171 +16,183 @@ import com.soapboxrace.core.jpa.UserEntity;
 import com.soapboxrace.core.xmpp.OpenFireSoapBoxCli;
 import com.soapboxrace.core.xmpp.XmppChat;
 
-import javax.ejb.EJB;
-import javax.ejb.Stateless;
-import java.time.LocalDateTime;
-import java.util.Arrays;
+import com.soapboxrace.core.dao.*;
 
 @Stateless
-public class AdminBO
-{
-    @EJB
-    private TokenSessionBO tokenSessionBo;
+public class AdminBO {
+	@EJB
+	private TokenSessionBO tokenSessionBo;
 
-    @EJB
-    private PersonaDAO personaDao;
+	@EJB
+	private PersonaDAO personaDao;
 
-    @EJB
-    private BanDAO banDAO;
+	@EJB
+	private UserDAO userDao;
 
-    public void sendCommand(Long personaId, Long abuserPersonaId, String command)
-    {
-        CommandInfo commandInfo = CommandInfo.parse(command);
-        PersonaEntity personaEntity = personaDao.findById(abuserPersonaId);
+	@EJB
+	private BanDAO banDAO;
 
-        if (personaEntity == null)
-            return;
+	@EJB
+	private OpenFireSoapBoxCli openFireSoapBoxCli;
 
-        switch (commandInfo.action)
-        {
-            case BAN:
-                if (commandInfo.type == null) {
-                    return;
-                }
-                
-                sendBan(personaId, personaEntity, commandInfo.type, commandInfo.timeEnd, commandInfo.reason);
-                break;
-            case KICK:
-                sendKick(personaEntity.getUser().getId(), personaEntity.getPersonaId());
-                break;
-            default:
-                break;
-        }
-    }
+	public void sendCommand(Long personaId, Long abuserPersonaId, String command) {
+		CommandInfo commandInfo = CommandInfo.parse(command);
+		PersonaEntity personaEntity = personaDao.findById(abuserPersonaId);
 
-    private void sendBan(Long actor, PersonaEntity personaEntity, String type, LocalDateTime endsOn, String reason)
-    {
-        UserEntity userEntity = personaEntity.getUser();
-        BanEntity banEntity = new BanEntity();
-        banEntity.setUserEntity(userEntity);
-        banEntity.setEndsAt(endsOn);
-        banEntity.setReason(reason);
-        
-        boolean doBan = true;
-        String failReason = "";
+		if (personaEntity == null)
+			return;
 
-        switch (type.toUpperCase())
-        {
-            case "IP":
-                banEntity.setType(BanEntity.BanType.IP_BAN);
-                banEntity.setData(userEntity.getIpAddress());
-                failReason = "This IP is already banned.";
-                doBan = banDAO.findByIp(userEntity.getIpAddress()) == null;
-                break;
-            case "EMAIL":
-                banEntity.setType(BanEntity.BanType.EMAIL_BAN);
-                banEntity.setData(userEntity.getEmail());
-                failReason = "This email is already banned.";
-                doBan = banDAO.findByEmail(userEntity.getEmail()) == null;
-                break;
-            case "ACCOUNT":
-                banEntity.setType(BanEntity.BanType.USER_BAN);
-                failReason = "This account is already banned.";
-                doBan = banDAO.findByUser(userEntity) == null;
-                break;
-        }
+		switch (commandInfo.action) {
+		case BAN:
+			if (commandInfo.type == null) {
+				return;
+			}
 
-        if (doBan) {
-            banDAO.insert(banEntity);
+			sendBan(personaId, personaEntity, commandInfo.type, commandInfo.timeEnd, commandInfo.reason);
+			break;
+		case KICK:
+			sendKick(personaEntity.getUser().getId(), personaEntity.getPersonaId());
+			break;
+		default:
+			break;
+		}
+	}
 
-            sendKick(userEntity.getId(), personaEntity.getPersonaId());
+	private void sendBan(Long actor, PersonaEntity personaEntity, String type, LocalDateTime endsOn, String reason) {
+		UserEntity userEntity = personaEntity.getUser();
+		BanEntity banEntity = new BanEntity();
+		banEntity.setUserEntity(userEntity);
+		banEntity.setEndsAt(endsOn);
+		banEntity.setReason(reason);
 
-            OpenFireSoapBoxCli.getInstance().send(XmppChat.createSystemMessage("Ban successful!"), actor);
-        } else {
-            OpenFireSoapBoxCli.getInstance().send(XmppChat.createSystemMessage(failReason), actor);
-        }
-    }
+		boolean doBan = true;
+		String failReason = "";
 
-    private void sendKick(Long userId, Long personaId)
-    {
-        OpenFireSoapBoxCli.getInstance().send("<NewsArticleTrans><ExpiryTime><", personaId);
-        tokenSessionBo.deleteByUserId(userId);
-    }
+		switch (type.toUpperCase()) {
+		case "HWID":
+			banEntity.setType(BanEntity.BanType.HWID_BAN);
+			banEntity.setData(userEntity.getHwid());
+			failReason = "This HWID is already banned.";
+			doBan = banDAO.findByHWID(userEntity.getHwid()) == null;
+			break;
+		case "IP":
+			banEntity.setType(BanEntity.BanType.IP_BAN);
+			banEntity.setData(userEntity.getIpAddress());
+			failReason = "This IP is already banned.";
+			doBan = banDAO.findByIp(userEntity.getIpAddress()) == null;
+			break;
+		case "EMAIL":
+			banEntity.setType(BanEntity.BanType.EMAIL_BAN);
+			banEntity.setData(userEntity.getEmail());
+			failReason = "This email is already banned.";
+			doBan = banDAO.findByEmail(userEntity.getEmail()) == null;
+			break;
+		case "ACCOUNT":
+			banEntity.setType(BanEntity.BanType.USER_BAN);
+			failReason = "This account is already banned.";
+			doBan = banDAO.findByUser(userEntity) == null;
+			break;
+		}
 
-    private static class CommandInfo
-    {
-        CommandInfo.CmdAction action;
-        String type;
-        String reason;
-        LocalDateTime timeEnd;
+		if (doBan) {
+			banDAO.insert(banEntity);
 
-        public enum CmdAction
-        {
-            KICK,
-            BAN,
-            UNKNOWN
-        }
+			sendKick(userEntity.getId(), personaEntity.getPersonaId());
 
-        static CommandInfo parse(String cmd)
-        {
-            cmd = cmd.replaceFirst("/", "");
+			openFireSoapBoxCli.send(XmppChat.createSystemMessage("Ban successful!"), actor);
+		} else {
+			openFireSoapBoxCli.send(XmppChat.createSystemMessage(failReason), actor);
+		}
+	}
 
-            String[] split = cmd.split(" ");
-            CommandInfo.CmdAction action;
-            CommandInfo info = new CommandInfo();
+	private void sendKick(Long userId, Long personaId) {
+		openFireSoapBoxCli.send("<NewsArticleTrans><ExpiryTime><", personaId);
+		tokenSessionBo.deleteByUserId(userId);
+	}
 
-            switch (split[0].toLowerCase().trim())
-            {
-                case "ban":
-                    action = CommandInfo.CmdAction.BAN;
-                    break;
-                case "kick":
-                    action = CommandInfo.CmdAction.KICK;
-                    break;
-                default:
-                    action = CommandInfo.CmdAction.UNKNOWN;
-                    break;
-            }
+	private static class CommandInfo {
+		public CommandInfo.CmdAction action;
+		public String type;
+		public String reason;
+		public LocalDateTime timeEnd;
 
-            info.action = action;
+		public enum CmdAction {
+			KICK, BAN, ALERT, UNKNOWN
+		}
 
-            switch (action)
-            {
-                case BAN:
-                {
-                    LocalDateTime endTime;
-                    String reason = null;
+		public static CommandInfo parse(String cmd) {
+			cmd = cmd.replaceFirst("/", "");
 
-                    System.out.println(Arrays.toString(split));
+			String[] split = cmd.split(" ");
+			CommandInfo.CmdAction action;
+			CommandInfo info = new CommandInfo();
 
-                    if (split.length >= 3)
-                    {
-                        info.type = split[1];
-                        long givenTime = MiscUtils.lengthToMiliseconds(split[2]);
-                        if (givenTime != 0)
-                        {
-                            endTime = LocalDateTime.now().plusSeconds(givenTime / 1000);
-                            info.timeEnd = endTime;
-//                            length = System.currentTimeMillis() + givenTime;
+			switch (split[0].toLowerCase().trim()) {
+			case "ban":
+				action = CommandInfo.CmdAction.BAN;
+				break;
+			case "kick":
+				action = CommandInfo.CmdAction.KICK;
+				break;
+			default:
+				action = CommandInfo.CmdAction.UNKNOWN;
+				break;
+			}
 
-                            if (split.length > 3)
-                            {
-                                reason = MiscUtils.argsToString(split, 3, split.length);
-                            }
-                        } else
-                        {
-                            reason = MiscUtils.argsToString(split, 2, split.length);
-                        }
-                    } else if (split.length >= 2) {
-                        info.type = split[1];
-                    }
+			info.action = action;
 
-                    info.reason = reason;
-                    break;
-                }
-            }
+			switch (action) {
+			case BAN: {
+				LocalDateTime endTime;
+				String reason = null;
 
-            return info;
-        }
-    }
+				System.out.println(Arrays.toString(split));
+
+				if (split.length >= 3) {
+					info.type = split[1];
+					long givenTime = MiscUtils.lengthToMiliseconds(split[2]);
+					if (givenTime != 0) {
+						endTime = LocalDateTime.now().plusSeconds(givenTime / 1000);
+						info.timeEnd = endTime;
+						// length = System.currentTimeMillis() + givenTime;
+
+						if (split.length > 3) {
+							reason = MiscUtils.argsToString(split, 3, split.length);
+						}
+					} else {
+						reason = MiscUtils.argsToString(split, 2, split.length);
+					}
+				} else if (split.length >= 2) {
+					info.type = split[1];
+				}
+
+				info.reason = reason;
+				break;
+			}
+			default:
+				break;
+			}
+
+			return info;
+		}
+
+		@Override
+		public String toString() {
+			String desc = action.name();
+
+			if (reason != null && !reason.isEmpty()) {
+				desc += "|" + reason;
+			}
+
+			if (timeEnd != null) {
+				desc += "|" + LaunchFilter.banEndFormatter.format(timeEnd);
+			}
+
+			if (type != null && !type.isEmpty()) {
+				desc += "|" + type;
+			}
+
+			return desc;
+		}
+	}
 }
