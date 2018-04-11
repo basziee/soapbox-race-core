@@ -1,52 +1,17 @@
 package com.soapboxrace.core.bo;
 
-import java.util.List;
+import com.soapboxrace.core.bo.util.AccoladesFunc;
+import com.soapboxrace.core.dao.*;
+import com.soapboxrace.core.jpa.*;
+import com.soapboxrace.core.xmpp.XmppEvent;
+import com.soapboxrace.jaxb.http.*;
+import com.soapboxrace.jaxb.util.MarshalXML;
+import com.soapboxrace.jaxb.xmpp.*;
 
 import javax.ejb.EJB;
 import javax.ejb.Stateless;
-
-import com.soapboxrace.core.bo.util.AccoladesFunc;
-import com.soapboxrace.core.dao.CarSlotDAO;
-import com.soapboxrace.core.dao.EventDAO;
-import com.soapboxrace.core.dao.EventDataDAO;
-import com.soapboxrace.core.dao.EventSessionDAO;
-import com.soapboxrace.core.dao.PersonaDAO;
-import com.soapboxrace.core.jpa.EventEntity;
-import com.soapboxrace.core.jpa.EventSessionEntity;
-import com.soapboxrace.core.jpa.PersonaEntity;
-import com.soapboxrace.core.jpa.CarSlotEntity;
-import com.soapboxrace.core.jpa.CardDecks;
-import com.soapboxrace.core.jpa.EventDataEntity;
-import com.soapboxrace.jaxb.http.Accolades;
-import com.soapboxrace.jaxb.http.ArrayOfDragEntrantResult;
-import com.soapboxrace.jaxb.http.ArrayOfLuckyDrawItem;
-import com.soapboxrace.jaxb.http.ArrayOfRewardPart;
-import com.soapboxrace.jaxb.http.ArrayOfRouteEntrantResult;
-import com.soapboxrace.jaxb.http.ArrayOfTeamEscapeEntrantResult;
-import com.soapboxrace.jaxb.http.DragArbitrationPacket;
-import com.soapboxrace.jaxb.http.DragEntrantResult;
-import com.soapboxrace.jaxb.http.DragEventResult;
-import com.soapboxrace.jaxb.http.EnumRewardCategory;
-import com.soapboxrace.jaxb.http.EnumRewardType;
-import com.soapboxrace.jaxb.http.ExitPath;
-import com.soapboxrace.jaxb.http.LuckyDrawInfo;
-import com.soapboxrace.jaxb.http.OwnedCarTrans;
-import com.soapboxrace.jaxb.http.PursuitArbitrationPacket;
-import com.soapboxrace.jaxb.http.PursuitEventResult;
-import com.soapboxrace.jaxb.http.RouteArbitrationPacket;
-import com.soapboxrace.jaxb.http.RouteEntrantResult;
-import com.soapboxrace.jaxb.http.RouteEventResult;
-import com.soapboxrace.jaxb.http.TeamEscapeArbitrationPacket;
-import com.soapboxrace.jaxb.http.TeamEscapeEntrantResult;
-import com.soapboxrace.jaxb.http.TeamEscapeEventResult;
-import com.soapboxrace.jaxb.util.MarshalXML;
-import com.soapboxrace.jaxb.xmpp.XMPP_DragEntrantResultType;
-import com.soapboxrace.jaxb.xmpp.XMPP_ResponseTypeDragEntrantResult;
-import com.soapboxrace.jaxb.xmpp.XMPP_ResponseTypeRouteEntrantResult;
-import com.soapboxrace.jaxb.xmpp.XMPP_ResponseTypeTeamEscapeEntrantResult;
-import com.soapboxrace.jaxb.xmpp.XMPP_RouteEntrantResultType;
-import com.soapboxrace.jaxb.xmpp.XMPP_TeamEscapeEntrantResultType;
-import com.soapboxrace.xmpp.openfire.XmppEvent;
+import java.util.List;
+//import com.soapboxrace.xmpp.openfire.XmppEvent;
 
 @Stateless
 public class EventBO extends AccoladesFunc {
@@ -72,6 +37,9 @@ public class EventBO extends AccoladesFunc {
 	@EJB
 	private PersonaBO personaBo;
 	
+	@EJB
+	private ParameterBO parameterBO;
+	
 	public List<EventEntity> availableAtLevel(Long personaId) {
 		PersonaEntity personaEntity = personaDao.findById(personaId);
 		return eventDao.findByLevel(personaEntity.getLevel());
@@ -93,6 +61,7 @@ public class EventBO extends AccoladesFunc {
 		}
 		EventSessionEntity eventSessionEntity = new EventSessionEntity();
 		eventSessionEntity.setEvent(eventEntity);
+		eventSessionEntity.setStarted(System.currentTimeMillis());
 		eventSessionDao.insert(eventSessionEntity);
 		return eventSessionEntity;
 	}
@@ -102,6 +71,11 @@ public class EventBO extends AccoladesFunc {
 	}
 	
 	public PursuitEventResult getPursitEnd(Long eventSessionId, Long activePersonaId, PursuitArbitrationPacket pursuitArbitrationPacket, Boolean isBusted) {
+		EventSessionEntity sessionEntity = eventSessionDao.findById(eventSessionId);
+		sessionEntity.setEnded(System.currentTimeMillis());
+		
+		eventSessionDao.update(sessionEntity);
+
 		if(pursuitArbitrationPacket.getHacksDetected() > 0) {
 			sendReportFromServer(activePersonaId, (int)pursuitArbitrationPacket.getCarId(), pursuitArbitrationPacket.getHacksDetected());
 		}
@@ -139,8 +113,13 @@ public class EventBO extends AccoladesFunc {
 		pursuitEventResult.setPersonaId(activePersonaId);
 		return pursuitEventResult;
 	}
-	
+
 	public RouteEventResult getRaceEnd(Long eventSessionId, Long activePersonaId, RouteArbitrationPacket routeArbitrationPacket) {
+		EventSessionEntity sessionEntity = eventSessionDao.findById(eventSessionId);
+		sessionEntity.setEnded(System.currentTimeMillis());
+
+		eventSessionDao.update(sessionEntity);
+
 		if(routeArbitrationPacket.getHacksDetected() > 0) {
 			sendReportFromServer(activePersonaId, (int)routeArbitrationPacket.getCarId(), routeArbitrationPacket.getHacksDetected());
 		}
@@ -210,6 +189,11 @@ public class EventBO extends AccoladesFunc {
 	}
 	
 	public DragEventResult getDragEnd(Long eventSessionId, Long activePersonaId, DragArbitrationPacket dragArbitrationPacket) {
+		EventSessionEntity sessionEntity = eventSessionDao.findById(eventSessionId);
+		sessionEntity.setEnded(System.currentTimeMillis());
+
+		eventSessionDao.update(sessionEntity);
+
 		if(dragArbitrationPacket.getHacksDetected() > 0) {
 			sendReportFromServer(activePersonaId, (int)dragArbitrationPacket.getCarId(), dragArbitrationPacket.getHacksDetected());
 		}
@@ -276,6 +260,11 @@ public class EventBO extends AccoladesFunc {
 	}
 	
 	public TeamEscapeEventResult getTeamEscapeEnd(Long eventSessionId, Long activePersonaId, TeamEscapeArbitrationPacket teamEscapeArbitrationPacket) {
+		EventSessionEntity sessionEntity = eventSessionDao.findById(eventSessionId);
+		sessionEntity.setEnded(System.currentTimeMillis());
+
+		eventSessionDao.update(sessionEntity);
+
 		if(teamEscapeArbitrationPacket.getHacksDetected() > 0) {
 			sendReportFromServer(activePersonaId, (int)teamEscapeArbitrationPacket.getCarId(), teamEscapeArbitrationPacket.getHacksDetected());
 		}

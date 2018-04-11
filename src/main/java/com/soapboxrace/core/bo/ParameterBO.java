@@ -1,12 +1,12 @@
 package com.soapboxrace.core.bo;
 
-import javax.ejb.EJB;
-import javax.ejb.Stateless;
-
 import com.soapboxrace.core.dao.ParameterDAO;
 import com.soapboxrace.core.dao.TokenSessionDAO;
 import com.soapboxrace.core.jpa.ParameterEntity;
 import com.soapboxrace.core.jpa.TokenSessionEntity;
+
+import javax.ejb.EJB;
+import javax.ejb.Stateless;
 
 @Stateless
 public class ParameterBO {
@@ -42,6 +42,14 @@ public class ParameterBO {
 		return 30;
 	}
 
+	public int getStartingCash() {
+		String parameter = getParameter("STARTING_CASH_AMOUNT");
+		if (parameter != null) {
+			return Integer.valueOf(parameter);
+		}
+		return 350_000;
+	}
+	
 	public boolean getPremiumCarChangerProtection() {
 		String parameter = getParameter("PREMIUM_CARCHANGER_PROTECTION");
 		if (parameter != null) {

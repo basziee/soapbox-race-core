@@ -30,11 +30,18 @@ public class UserEntity {
 
 	@Column(name = "PASSWORD", length = 50)
 	private String password;
+	
+	@Column(name = "IP_ADDRESS")
+	private String ipAddress;
 
 	@OneToMany(mappedBy = "user", targetEntity = PersonaEntity.class)
 	private List<PersonaEntity> listOfProfile;
 
-	private boolean premium = false;
+	@Column(name = "premium")
+	private boolean premium;
+
+	@Column(name = "isAdmin")
+	private boolean isAdmin;
 
 	public void setId(Long id) {
 		this.id = id;
@@ -64,6 +71,16 @@ public class UserEntity {
 		return listOfProfile;
 	}
 
+	public String getIpAddress()
+	{
+		return ipAddress;
+	}
+
+	public void setIpAddress(String ipAddress)
+	{
+		this.ipAddress = ipAddress;
+	}
+
 	public boolean isPremium() {
 		return premium;
 	}
@@ -74,5 +91,15 @@ public class UserEntity {
 
 	public boolean ownsPersona(Long id) {
 		return this.listOfProfile.stream().anyMatch(p -> p.getPersonaId().equals(id));
+	}
+
+	public boolean isAdmin()
+	{
+		return isAdmin;
+	}
+
+	public void setAdmin(boolean admin)
+	{
+		isAdmin = admin;
 	}
 }

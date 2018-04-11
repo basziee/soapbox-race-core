@@ -38,11 +38,20 @@ public class DriverPersonaBO {
 
 	@EJB
 	private TreasureHuntDAO treasureHuntDAO;
+	
+	@EJB
+	private ParameterBO parameterBO;
 
 	public ProfileData createPersona(Long userId, PersonaEntity personaEntity) {
 		UserEntity userEntity = userDao.findById(userId);
+		
+		if (userEntity.getListOfProfile().size() >= 3) { 
+			return null;
+//			throw new UnsupportedOperationException("Can't have more than 3 personas");
+		}
+		
 		personaEntity.setUser(userEntity);
-		personaEntity.setCash(6000000);
+		personaEntity.setCash(parameterBO.getStartingCash());
 		personaEntity.setLevel(1);
 		personaDao.insert(personaEntity);
 		
