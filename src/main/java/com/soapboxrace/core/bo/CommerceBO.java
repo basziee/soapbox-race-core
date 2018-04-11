@@ -1,11 +1,18 @@
 package com.soapboxrace.core.bo;
 
+import java.util.List;
+
 import javax.ejb.EJB;
 import javax.ejb.Stateless;
 
 import com.soapboxrace.core.dao.CarSlotDAO;
 import com.soapboxrace.core.dao.PersonaDAO;
+import com.soapboxrace.core.dao.ProductDAO;
+import com.soapboxrace.core.dao.VinylProductDAO;
 import com.soapboxrace.core.jpa.CarSlotEntity;
+import com.soapboxrace.core.jpa.PersonaEntity;
+import com.soapboxrace.jaxb.http.BasketItemTrans;
+import com.soapboxrace.jaxb.http.CommerceResultStatus;
 import com.soapboxrace.jaxb.http.CommerceSessionTrans;
 import com.soapboxrace.jaxb.http.OwnedCarTrans;
 import com.soapboxrace.jaxb.util.MarshalXML;
@@ -14,16 +21,22 @@ import com.soapboxrace.jaxb.util.MarshalXML;
 public class CommerceBO {
 
 	@EJB
+	private PersonaBO personaBO;
+
+	@EJB
 	private CarSlotDAO carSlotDAO;
 
 	@EJB
 	private PersonaDAO personaDAO;
 
 	@EJB
-	private PersonaBO personaBO;
+	private ProductDAO productDao;
 
-	public void updateCar(CommerceSessionTrans commerceSessionTrans, Long personaId) {
-		OwnedCarTrans ownedCarTrans = personaBO.getDefaultCar(personaId);
+	@EJB
+	private VinylProductDAO vinylProductDao;
+
+	public CommerceResultStatus updateCar(CommerceSessionTrans commerceSessionTrans, PersonaEntity personaEntity) {
+		OwnedCarTrans ownedCarTrans = personaBO.getDefaultCar(personaEntity.getPersonaId());
 		ownedCarTrans.getCustomCar().setVinyls(commerceSessionTrans.getUpdatedCar().getCustomCar().getVinyls());
 		ownedCarTrans.getCustomCar().setPaints(commerceSessionTrans.getUpdatedCar().getCustomCar().getPaints());
 		ownedCarTrans.getCustomCar().setSkillModParts(commerceSessionTrans.getUpdatedCar().getCustomCar().getSkillModParts());
@@ -34,9 +47,33 @@ public class CommerceBO {
 
 		CarSlotEntity carSlotEntity = carSlotDAO.findById(commerceSessionTrans.getUpdatedCar().getId());
 		if (carSlotEntity != null) {
+			List<BasketItemTrans> listBasketItemTrans = commerceSessionTrans.getBasket().getItems().getBasketItemTrans();
+			if(!listBasketItemTrans.isEmpty()) { // if buy or install perf part
+				int maxBuyPrice = 0;
+				for(BasketItemTrans basketItemTrans : listBasketItemTrans) {
+					if(basketItemTrans.getProductId().contains("SRV-VINYL")) {
+						maxBuyPrice += (vinylProductDao.findByProductId(basketItemTrans.getProductId()).getPrice() * basketItemTrans.getQuantity());
+					} else {
+						maxBuyPrice += (productDao.findByProductId(basketItemTrans.getProductId()).getPrice() * basketItemTrans.getQuantity());
+					}
+				}
+				if(maxBuyPrice > 0) {
+					if(personaEntity.getCash() < maxBuyPrice) {
+						return CommerceResultStatus.FAIL_INSUFFICIENT_FUNDS;
+					}
+					
+					personaEntity.setCash(personaEntity.getCash() - maxBuyPrice);
+					personaDAO.update(personaEntity);
+				}
+			} else { // else i sell some part from my inventory
+				
+			}
+			
 			carSlotEntity.setOwnedCarTrans(MarshalXML.marshal(ownedCarTrans));
 			carSlotDAO.update(carSlotEntity);
+			return CommerceResultStatus.SUCCESS;
 		}
+		return CommerceResultStatus.FAIL_INVALID_BASKET;
 	}
 
 	public OwnedCarTrans responseCar(CommerceSessionTrans commerceSessionTrans) {
